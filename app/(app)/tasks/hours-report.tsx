@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, Calendar, Clock, FileText, Download } from 'lucide-react-native';
 import { supabase } from '../../../lib/supabase';
@@ -66,6 +66,7 @@ export default function HoursReport() {
 
       if (error) {
         console.error('Error fetching work sessions:', error);
+        Alert.alert('Error', 'Failed to load work sessions');
         return;
       }
 
@@ -87,6 +88,7 @@ export default function HoursReport() {
       setTotalHours(parseFloat(total.toFixed(2)));
     } catch (error) {
       console.error('Exception fetching work sessions:', error);
+      Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -100,10 +102,10 @@ export default function HoursReport() {
       // For this demo, we'll just simulate a delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      alert('PDF report generated and saved to your device');
+      Alert.alert('Success', 'PDF report generated and saved to your device');
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF report');
+      Alert.alert('Error', 'Failed to generate PDF report');
     } finally {
       setIsGeneratingPdf(false);
     }

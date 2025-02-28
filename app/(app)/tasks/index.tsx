@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
-import { Car, Clock, MapPin, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Timer, Play, Square, FileText, Camera } from 'lucide-react-native';
+import { Car, Clock, MapPin, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Timer, Play, Square, FileText, Camera, User } from 'lucide-react-native';
 import { useAuth } from '../../../context/auth';
 import { supabase } from '../../../lib/supabase';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
@@ -330,6 +330,16 @@ export default function Tasks() {
               <Camera size={24} color="#34C759" />
             </View>
             <Text style={styles.actionText}>Track Service</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => router.push('/tasks/employee-profile')}
+          >
+            <View style={styles.actionIcon}>
+              <User size={24} color="#5856D6" />
+            </View>
+            <Text style={styles.actionText}>My Profile</Text>
           </TouchableOpacity>
         </View>
 

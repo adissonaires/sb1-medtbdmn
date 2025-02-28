@@ -24,6 +24,13 @@ export default function TasksLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="employee-profile"
+        options={{
+          title: 'My Profile',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

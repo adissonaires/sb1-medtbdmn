@@ -370,29 +370,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Only administrators can create users' };
       }
 
-      // Create auth user first
-      const { data: { user: authUser }, error: authError } = await supabase.auth.admin.createUser({
+      // Create auth user using public signup instead of admin API
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: userData.email!,
         password: password,
-        email_confirm: true,
-        user_metadata: {
-          name: userData.name,
-          role: userData.role
+        options: {
+          data: {
+            name: userData.name,
+            role: userData.role
+          }
         }
       });
 
-      if (authError) {
-        console.error('Error creating auth user:', authError);
-        return { success: false, error: authError };
+      if (signUpError) {
+        console.error('Error creating auth user:', signUpError);
+        return { success: false, error: signUpError };
       }
 
-      if (!authUser) {
+      if (!data.user) {
         return { success: false, error: 'Failed to create user' };
       }
 
       // Create user profile
       const { profile, error: profileError } = await createUserProfile(
-        authUser.id,
+        data.user.id,
         userData.email!,
         userData.name!,
         userData.role || 'client'

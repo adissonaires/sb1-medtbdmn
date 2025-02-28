@@ -238,7 +238,7 @@ export default function ServiceTracking() {
       <View style={styles.serviceCard}>
         <View style={styles.serviceHeader}>
           <Car size={24} color="#007AFF" />
-          <Text style={styles.serviceName}>{task.services?.name}</Text>
+           <Text style={styles.serviceName}>{task.services?.name}</Text>
         </View>
 
         <View style={styles.serviceDetails}>
