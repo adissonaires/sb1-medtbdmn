@@ -3,6 +3,7 @@ import { router, useSegments, useRootNavigationState } from 'expo-router';
 import { Platform, View, Text } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Database } from '../lib/database.types';
+import { LoadingScreen } from '../components/LoadingScreen';
 
 type User = Database['public']['Tables']['users']['Row'];
 
@@ -12,6 +13,9 @@ type AuthContextType = {
   signOut: () => void;
   user: User | null;
   isLoading: boolean;
+  updateUserProfile: (userData: Partial<User>) => Promise<{ success: boolean; error: any }>;
+  createUser: (userData: Partial<User>, password: string) => Promise<{ success: boolean; error: any }>;
+  isAdmin: () => boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -31,7 +35,8 @@ function useProtectedRoute(user: User | null) {
   const navigationState = useRootNavigationState();
 
   useEffect(() => {
-    if (!navigationState?.key) return;
+    // Wait for navigation to be ready before redirecting
+    if (!navigationState?.key || !segments) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -48,8 +53,7 @@ function useProtectedRoute(user: User | null) {
           router.replace('/services');
           break;
         case 'employee':
-          // TODO: Add employee-specific route
-          router.replace('/dashboard');
+          router.replace('/tasks');
           break;
         default:
           router.replace('/dashboard');
@@ -62,8 +66,98 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  useProtectedRoute(user);
+  // Helper function to safely fetch user profile
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return { profile: null, error };
+      }
+      
+      return { profile: data, error: null };
+    } catch (err) {
+      console.error('Exception fetching user profile:', err);
+      return { profile: null, error: err };
+    }
+  };
+
+  // Helper function to safely create user profile
+  const createUserProfile = async (userId: string, email: string, name: string, userRole: string) => {
+    try {
+      // Check if profile already exists to avoid duplicate key errors
+      const { profile: existingProfile } = await fetchUserProfile(userId);
+      if (existingProfile) {
+        return { profile: existingProfile, error: null };
+      }
+      
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: email || '',
+          name: name || email?.split('@')[0] || 'User',
+          role: userRole as any || 'client',
+          status: 'active'
+        })
+        .select('*')
+        .single();
+      
+      if (error) {
+        // If it's a duplicate key error, try to fetch the profile instead
+        if (error.code === '23505') {
+          const { profile } = await fetchUserProfile(userId);
+          if (profile) {
+            return { profile, error: null };
+          }
+        }
+        console.error('Error creating user profile:', error);
+        return { profile: null, error };
+      }
+      
+      return { profile: data, error: null };
+    } catch (err) {
+      console.error('Exception creating user profile:', err);
+      return { profile: null, error: err };
+    }
+  };
+
+  // Only call useProtectedRoute after initialization
+  const segments = useSegments();
+  const navigationState = useRootNavigationState();
+  
+  useEffect(() => {
+    if (isInitialized && navigationState?.key) {
+      const inAuthGroup = segments[0] === '(auth)';
+  
+      if (!user && !inAuthGroup) {
+        // Redirect to the sign-in page.
+        router.replace('/sign-in');
+      } else if (user && inAuthGroup) {
+        // Redirect to the appropriate initial route based on user role
+        switch (user.role) {
+          case 'admin':
+            router.replace('/dashboard');
+            break;
+          case 'client':
+            router.replace('/services');
+            break;
+          case 'employee':
+            router.replace('/tasks');
+            break;
+          default:
+            router.replace('/dashboard');
+        }
+      }
+    }
+  }, [user, segments, navigationState?.key, isInitialized]);
 
   useEffect(() => {
     let isMounted = true;
@@ -71,6 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
       setError('Missing Supabase configuration');
       setIsLoading(false);
+      setIsInitialized(true);
       return;
     }
 
@@ -81,15 +176,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!isMounted) return;
 
         if (session?.user) {
-          const { data: profile, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+          const { profile, error: profileError } = await fetchUserProfile(session.user.id);
 
-          if (error) {
-            console.error('Error fetching user profile:', error);
+          if (profileError) {
             setError('Error loading user profile');
+          } else if (!profile) {
+            // If profile doesn't exist, create it based on auth data
+            const { profile: newProfile, error: createError } = await createUserProfile(
+              session.user.id,
+              session.user.email || '',
+              session.user.user_metadata.name || '',
+              session.user.user_metadata.role || 'client'
+            );
+
+            if (createError) {
+              setError('Error creating user profile');
+            } else if (newProfile) {
+              setUser(newProfile);
+            }
           } else {
             setUser(profile);
           }
@@ -98,7 +202,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error initializing auth:', error);
       } finally {
         if (isMounted) { 
-          setIsLoading(false); 
+          setIsLoading(false);
+          setIsInitialized(true);
         }
       }
     }
@@ -107,20 +212,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user && isMounted) {
-        if (!isMounted) return;
+        const { profile, error: profileError } = await fetchUserProfile(session.user.id);
 
-        // Fetch user profile when auth state changes
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        if (profileError) {
+          setError('Error loading user profile');
+          return;
+        }
 
         if (profile) {
           setUser(profile);
           setError(null);
         } else {
-          setError('User profile not found');
+          // If profile doesn't exist, create it
+          const { profile: newProfile, error: createError } = await createUserProfile(
+            session.user.id,
+            session.user.email || '',
+            session.user.user_metadata.name || '',
+            session.user.user_metadata.role || 'client'
+          );
+
+          if (createError) {
+            setError('Error creating user profile');
+          } else if (newProfile) {
+            setUser(newProfile);
+            setError(null);
+          }
         }
       } else {
         setUser(null);
@@ -154,8 +270,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, name: string, role: 'client' | 'employee') => {
     setIsLoading(true);
     try {
-      // Create the auth user
-      const { error: authError } = await supabase.auth.signUp({
+      // First, create the auth user
+      const { data: { user: authUser }, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -167,35 +283,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (authError) throw authError;
+      if (!authUser) throw new Error('Failed to create user');
 
-      // Wait for a moment to allow the trigger to create the user profile
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Wait a moment for the trigger to potentially create the user
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Sign in and get the session
+      // Try to create the user profile (this will handle the case if it already exists)
+      const { profile, error: profileError } = await createUserProfile(
+        authUser.id,
+        email,
+        name,
+        role
+      );
+
+      if (profileError && !profileError.code?.includes('23505')) {
+        throw profileError;
+      }
+
+      // Sign in after successful signup
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) throw signInError;
-
-      // Get the session after sign in
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (session?.user) {
-        // Fetch the user profile
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileError) {
-          throw new Error('Failed to create user profile. Please try again.');
-        }
-
-        setUser(profile);
-      }
 
     } catch (error) {
       console.error('Signup error:', error);
@@ -211,6 +322,120 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  // Function to update user profile
+  const updateUserProfile = async (userData: Partial<User>) => {
+    try {
+      if (!user?.id) {
+        return { success: false, error: 'No user logged in' };
+      }
+
+      // Add updated_at timestamp
+      const dataToUpdate = {
+        ...userData,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('users')
+        .update(dataToUpdate)
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error updating user profile:', error);
+        return { success: false, error };
+      }
+
+      // Refresh user data
+      const { profile, error: fetchError } = await fetchUserProfile(user.id);
+      if (fetchError) {
+        return { success: false, error: fetchError };
+      }
+
+      if (profile) {
+        setUser(profile);
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Exception updating user profile:', error);
+      return { success: false, error };
+    }
+  };
+
+  // Function to create a new user (admin only)
+  const createUser = async (userData: Partial<User>, password: string) => {
+    try {
+      // Check if current user is admin
+      if (!isAdmin()) {
+        return { success: false, error: 'Only administrators can create users' };
+      }
+
+      // Create auth user first
+      const { data: { user: authUser }, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email!,
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          name: userData.name,
+          role: userData.role
+        }
+      });
+
+      if (authError) {
+        console.error('Error creating auth user:', authError);
+        return { success: false, error: authError };
+      }
+
+      if (!authUser) {
+        return { success: false, error: 'Failed to create user' };
+      }
+
+      // Create user profile
+      const { profile, error: profileError } = await createUserProfile(
+        authUser.id,
+        userData.email!,
+        userData.name!,
+        userData.role || 'client'
+      );
+
+      if (profileError) {
+        console.error('Error creating user profile:', profileError);
+        return { success: false, error: profileError };
+      }
+
+      // Update additional user fields
+      if (profile) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            ...userData,
+            id: profile.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', profile.id);
+
+        if (updateError) {
+          console.error('Error updating user details:', updateError);
+          return { success: false, error: updateError };
+        }
+      }
+
+      return { success: true, error: null };
+    } catch (error) {
+      console.error('Exception creating user:', error);
+      return { success: false, error };
+    }
+  };
+
+  // Helper function to check if user is admin
+  const isAdmin = () => {
+    return user?.role === 'admin';
+  };
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
   if (error) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -220,7 +445,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ signIn, signUp, signOut, user, isLoading }}>
+    <AuthContext.Provider value={{ 
+      signIn, 
+      signUp, 
+      signOut, 
+      user, 
+      isLoading, 
+      updateUserProfile, 
+      createUser,
+      isAdmin
+    }}>
       {children}
     </AuthContext.Provider>
   );

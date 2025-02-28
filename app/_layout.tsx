@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack, Redirect } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../context/auth';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -18,9 +18,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" />
       </Stack>
       <StatusBar style="auto" />
     </AuthProvider>

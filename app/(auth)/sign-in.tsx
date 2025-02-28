@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, TextInput, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../context/auth';
 
@@ -12,8 +12,15 @@ export default function SignIn() {
   const handleSignIn = async () => {
     try {
       setError('');
+      
+      if (!email || !password) {
+        setError('Email and password are required');
+        return;
+      }
+      
       await signIn(email, password);
     } catch (e) {
+      console.error('Sign in error:', e);
       setError('Invalid email or password');
     }
   };
@@ -105,5 +112,5 @@ const styles = StyleSheet.create({
   link: {
     marginTop: 15,
     alignItems: 'center',
-  },
+  }
 });

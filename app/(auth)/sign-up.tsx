@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, TextInput, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Link, router } from 'expo-router';
-import { useAuth } from '../../context/auth';
 import { Platform } from 'react-native';
+import { useAuth } from '../../context/auth';
 
 export default function SignUp() {
   const [name, setName] = useState('');
@@ -17,7 +17,7 @@ export default function SignUp() {
   const handleSignUp = async () => {
     try {
       setIsLoading(true);
-      setError('');      
+      setError('');
       
       if (!name || !email || !password || !confirmPassword) {
         setError('All fields are required');
@@ -32,7 +32,6 @@ export default function SignUp() {
       }
 
       await signUp(email, password, name, role);
-      // Signup successful - router will handle redirect
     } catch (e) {
       console.error('Signup error:', e instanceof Error ? e.message : e);
       setError('Failed to create account. Please try again.');
@@ -78,7 +77,7 @@ export default function SignUp() {
         onChangeText={setConfirmPassword}
         secureTextEntry
       />
-
+      
       <View style={styles.roleContainer}>
         <TouchableOpacity
           style={[
