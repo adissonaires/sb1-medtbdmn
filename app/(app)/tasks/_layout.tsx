@@ -31,6 +31,13 @@ export default function TasksLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="invoice-generator"
+        options={{
+          title: 'Invoice Generator',
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

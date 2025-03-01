@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
-import { Car, Clock, MapPin, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Timer, Play, Square, FileText, Camera, User } from 'lucide-react-native';
+import { Car, Clock, MapPin, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Timer, Play, Square, FileText, Camera, User, DollarSign } from 'lucide-react-native';
 import { useAuth } from '../../../context/auth';
+import { useNotifications } from '../../../context/notifications';
 import { supabase } from '../../../lib/supabase';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { useRouter } from 'expo-router';
@@ -24,6 +25,7 @@ type TaskStatus = 'pending' | 'in-progress' | 'completed';
 
 export default function Tasks() {
   const { user } = useAuth();
+  const { showNotification } = useNotifications();
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState<TaskStatus | 'all'>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -76,6 +78,15 @@ export default function Tasks() {
       }));
 
       setTasks(formattedTasks);
+      
+      // Show notification for pending tasks
+      const pendingTasks = formattedTasks.filter(task => task.status === 'pending');
+      if (pendingTasks.length > 0) {
+        showNotification(
+          `You have ${pendingTasks.length} pending task${pendingTasks.length > 1 ? 's' : ''}`,
+          'info'
+        );
+      }
     } catch (error) {
       console.error('Exception fetching tasks:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -99,6 +110,21 @@ export default function Tasks() {
       }
 
       setActiveSession(data);
+      
+      // Remind user they're clocked in
+      if (data) {
+        const startTime = parseISO(data.clock_in_time);
+        const now = new Date();
+        const minutesActive = differenceInMinutes(now, startTime);
+        const hoursActive = Math.floor(minutesActive / 60);
+        
+        if (hoursActive >= 1) {
+          showNotification(
+            `You've been clocked in for ${hoursActive} hour${hoursActive > 1 ? 's' : ''}`,
+            'info'
+          );
+        }
+      }
     } catch (error) {
       console.error('Exception checking active session:', error);
     }
@@ -146,7 +172,7 @@ export default function Tasks() {
       }
 
       setActiveSession(data);
-      Alert.alert('Success', 'You have successfully clocked in.');
+      showNotification('You have successfully clocked in', 'success');
     } catch (error) {
       console.error('Exception clocking in:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -206,7 +232,7 @@ export default function Tasks() {
       }
 
       setActiveSession(null);
-      Alert.alert('Success', 'You have successfully clocked out.');
+      showNotification(`You worked for ${totalHours.toFixed(2)} hours`, 'success');
     } catch (error) {
       console.error('Exception clocking out:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -322,7 +348,7 @@ export default function Tasks() {
                   params: { taskId: tasks.find(t => t.status === 'in-progress')?.id || tasks[0]?.id }
                 });
               } else {
-                Alert.alert('Clock In Required', 'You need to clock in before tracking services.');
+                showNotification('You need to clock in before tracking services', 'warning');
               }
             }}
           >
@@ -332,6 +358,18 @@ export default function Tasks() {
             <Text style={styles.actionText}>Track Service</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => router.push('/tasks/invoice-generator')}
+          >
+            <View style={styles.actionIcon}>
+              <DollarSign size={24} color="#FF9500" />
+            </View>
+            <Text style={styles.actionText}>Invoice</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.quickActions}>
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => router.push('/tasks/employee-profile')}

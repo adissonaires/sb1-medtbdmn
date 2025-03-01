@@ -117,6 +117,5 @@ export default function AppLayout() {
     );
   }
 
-  // TODO: Implement client and employee layouts
   return null;
 }
