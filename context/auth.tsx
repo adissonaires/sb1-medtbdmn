@@ -29,39 +29,6 @@ export function useAuth() {
   return authContext;
 }
 
-// This hook will protect the route access based on user authentication.
-function useProtectedRoute(user: User | null) {
-  const segments = useSegments();
-  const navigationState = useRootNavigationState();
-
-  useEffect(() => {
-    // Wait for navigation to be ready before redirecting
-    if (!navigationState?.key || !segments) return;
-
-    const inAuthGroup = segments[0] === '(auth)';
-
-    if (!user && !inAuthGroup) {
-      // Redirect to the sign-in page.
-      router.replace('/sign-in');
-    } else if (user && inAuthGroup) {
-      // Redirect to the appropriate initial route based on user role
-      switch (user.role) {
-        case 'admin':
-          router.replace('/dashboard');
-          break;
-        case 'client':
-          router.replace('/services');
-          break;
-        case 'employee':
-          router.replace('/tasks');
-          break;
-        default:
-          router.replace('/dashboard');
-      }
-    }
-  }, [user, segments, navigationState?.key]);
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -153,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.replace('/tasks');
             break;
           default:
-            router.replace('/dashboard');
+            router.replace('/sign-in');
         }
       }
     }
@@ -320,6 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     supabase.auth.signOut();
     setUser(null);
+    router.replace('/sign-in');
   };
 
   // Function to update user profile

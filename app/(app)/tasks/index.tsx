@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert, ActivityIndicator } from 'react-native';
-import { Car, Clock, MapPin, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Timer, Play, Square, FileText, Camera, User, DollarSign } from 'lucide-react-native';
+import { Car, Clock, MapPin, CircleCheck as CheckCircle2, CircleAlert as AlertCircle, Timer, Play, Square, FileText, Camera, DollarSign } from 'lucide-react-native';
 import { useAuth } from '../../../context/auth';
 import { useNotifications } from '../../../context/notifications';
 import { supabase } from '../../../lib/supabase';
@@ -267,6 +267,18 @@ export default function Tasks() {
     return `${hours}h ${remainingMinutes}m`;
   };
 
+  const handleNavigateToServiceTracking = (taskId: string) => {
+    if (!activeSession) {
+      showNotification('You need to clock in before tracking services', 'warning');
+      return;
+    }
+    
+    router.push({
+      pathname: '/tasks/service-tracking',
+      params: { taskId }
+    });
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content}>
@@ -343,10 +355,15 @@ export default function Tasks() {
             style={styles.actionButton}
             onPress={() => {
               if (activeSession) {
-                router.push({
-                  pathname: '/tasks/service-tracking',
-                  params: { taskId: tasks.find(t => t.status === 'in-progress')?.id || tasks[0]?.id }
-                });
+                const inProgressTask = tasks.find(t => t.status === 'in-progress');
+                const pendingTask = tasks.find(t => t.status === 'pending');
+                const taskToTrack = inProgressTask || pendingTask || tasks[0];
+                
+                if (taskToTrack) {
+                  handleNavigateToServiceTracking(taskToTrack.id);
+                } else {
+                  showNotification('No tasks available to track', 'warning');
+                }
               } else {
                 showNotification('You need to clock in before tracking services', 'warning');
               }
@@ -366,18 +383,6 @@ export default function Tasks() {
               <DollarSign size={24} color="#FF9500" />
             </View>
             <Text style={styles.actionText}>Invoice</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.quickActions}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => router.push('/tasks/employee-profile')}
-          >
-            <View style={styles.actionIcon}>
-              <User size={24} color="#5856D6" />
-            </View>
-            <Text style={styles.actionText}>My Profile</Text>
           </TouchableOpacity>
         </View>
 
@@ -421,10 +426,7 @@ export default function Tasks() {
                 <TouchableOpacity 
                   key={task.id} 
                   style={styles.taskCard}
-                  onPress={() => router.push({
-                    pathname: '/tasks/service-tracking',
-                    params: { taskId: task.id }
-                  })}
+                  onPress={() => handleNavigateToServiceTracking(task.id)}
                 >
                   <View style={styles.taskHeader}>
                     <View style={styles.serviceType}>
@@ -476,10 +478,7 @@ export default function Tasks() {
                         styles.actionButton,
                         { backgroundColor: getStatusColor(task.status) }
                       ]}
-                      onPress={() => router.push({
-                        pathname: '/tasks/service-tracking',
-                        params: { taskId: task.id }
-                      })}
+                      onPress={() => handleNavigateToServiceTracking(task.id)}
                     >
                       <Text style={styles.actionButtonText}>
                         {task.status === 'pending' ? 'Start Service' : 'Complete Service'}

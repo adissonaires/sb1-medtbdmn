@@ -1,11 +1,40 @@
 import { Tabs } from 'expo-router';
 import { useAuth } from '../../context/auth';
 import { Chrome as Home, Users, Calendar, FileText, Settings, Car, History, CirclePlus as PlusCircle, Clock } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import { router } from 'expo-router';
 
 export default function AppLayout() {
   const { user } = useAuth();
+  const [isReady, setIsReady] = useState(false);
 
-  if (user?.role === 'admin') {
+  useEffect(() => {
+    // Short delay to ensure user data is fully loaded
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [user]);
+
+  // Redirect to login if no user
+  useEffect(() => {
+    if (isReady && !user) {
+      router.replace('/sign-in');
+    }
+  }, [isReady, user]);
+
+  if (!isReady || !user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  // Strict role-based navigation
+  if (user.role === 'admin') {
     return (
       <Tabs screenOptions={{ headerShown: false }}>
         <Tabs.Screen
@@ -47,7 +76,7 @@ export default function AppLayout() {
     );
   }
   
-  if (user?.role === 'employee') {
+  if (user.role === 'employee') {
     return (
       <Tabs screenOptions={{ headerShown: false }}>
         <Tabs.Screen
@@ -82,7 +111,7 @@ export default function AppLayout() {
     );
   }
 
-  if (user?.role === 'client') {
+  if (user.role === 'client') {
     return (
       <Tabs screenOptions={{ headerShown: false }}>
         <Tabs.Screen
@@ -117,5 +146,29 @@ export default function AppLayout() {
     );
   }
 
-  return null;
+  // Fallback for unknown role
+  return (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorText}>Invalid user role: {user.role}</Text>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+  }
+});

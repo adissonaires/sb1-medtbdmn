@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/auth';
 import { format, parseISO } from 'date-fns';
 import { Database } from '../../../lib/database.types';
+import { useNotifications } from '../../../context/notifications';
 
 type Service = Database['public']['Tables']['services']['Row'];
 type ServiceRecord = Database['public']['Tables']['service_records']['Row'];
@@ -14,6 +15,7 @@ export default function ServiceTracking() {
   const { user } = useAuth();
   const router = useRouter();
   const { taskId } = useLocalSearchParams();
+  const { showNotification } = useNotifications();
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -23,17 +25,23 @@ export default function ServiceTracking() {
   const [afterPhotoUrl, setAfterPhotoUrl] = useState<string | null>(null);
   const [serviceRecord, setServiceRecord] = useState<ServiceRecord | null>(null);
   const [activeWorkSession, setActiveWorkSession] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTaskDetails();
-    checkActiveWorkSession();
+    checkActiveSession();
   }, [taskId]);
 
   const fetchTaskDetails = async () => {
-    if (!taskId) return;
+    if (!taskId) {
+      setError("No task ID provided");
+      setIsLoading(false);
+      return;
+    }
     
     try {
       setIsLoading(true);
+      setError(null);
       
       // Fetch task details
       const { data: appointment, error } = await supabase
@@ -54,7 +62,7 @@ export default function ServiceTracking() {
 
       if (error) {
         console.error('Error fetching task details:', error);
-        Alert.alert('Error', 'Failed to load task details');
+        setError('Failed to load task details. Please try again.');
         return;
       }
 
@@ -80,13 +88,13 @@ export default function ServiceTracking() {
       }
     } catch (error) {
       console.error('Exception fetching task details:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const checkActiveWorkSession = async () => {
+  const checkActiveSession = async () => {
     try {
       const { data, error } = await supabase
         .from('work_sessions')
@@ -127,7 +135,7 @@ export default function ServiceTracking() {
       setAfterPhotoUrl(mockUrl);
     }
     
-    Alert.alert('Success', `${type === 'before' ? 'Before' : 'After'} photo uploaded successfully`);
+    showNotification(`${type === 'before' ? 'Before' : 'After'} photo uploaded successfully`, 'success');
   };
 
   const handleSaveRecord = async () => {
@@ -191,11 +199,12 @@ export default function ServiceTracking() {
         }
       }
 
-      Alert.alert(
-        'Success', 
-        'Service record saved successfully',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      showNotification('Service record saved successfully', 'success');
+      
+      // Navigate back after a short delay
+      setTimeout(() => {
+        router.back();
+      }, 1000);
     } catch (error) {
       console.error('Exception saving service record:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -209,6 +218,18 @@ export default function ServiceTracking() {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text style={styles.loadingText}>Loading service details...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <ArrowLeft size={20} color="#007AFF" />
+          <Text style={styles.backButtonText}>Back to Tasks</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -399,6 +420,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FF3B30',
     marginBottom: 20,
+    textAlign: 'center',
   },
   serviceCard: {
     backgroundColor: '#fff',
