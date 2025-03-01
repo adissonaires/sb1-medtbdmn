@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useAuth } from '../../context/auth';
-import { Chrome as Home, Users, Calendar, FileText, Settings, Car, History, CirclePlus as PlusCircle, Clock } from 'lucide-react-native';
+import { Chrome as Home, Users, Calendar, FileText, Settings, Car, History, CirclePlus as PlusCircle, Clock, Briefcase, Building2 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
@@ -56,6 +56,20 @@ export default function AppLayout() {
           options={{
             title: 'Assignments',
             tabBarIcon: ({ color, size }) => <Calendar size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="services-management"
+          options={{
+            title: 'Services',
+            tabBarIcon: ({ color, size }) => <Briefcase size={size} color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="dealerships"
+          options={{
+            title: 'Dealerships',
+            tabBarIcon: ({ color, size }) => <Building2 size={size} color={color} />,
           }}
         />
         <Tabs.Screen

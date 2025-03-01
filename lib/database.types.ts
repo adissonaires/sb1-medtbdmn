@@ -51,6 +51,9 @@ export interface Database {
           duration: string
           price: number
           created_at: string
+          description?: string | null
+          features?: Json[] | null
+          image_url?: string | null
         }
         Insert: {
           id?: string
@@ -58,6 +61,9 @@ export interface Database {
           duration: string
           price: number
           created_at?: string
+          description?: string | null
+          features?: Json[] | null
+          image_url?: string | null
         }
         Update: {
           id?: string
@@ -65,6 +71,9 @@ export interface Database {
           duration?: string
           price?: number
           created_at?: string
+          description?: string | null
+          features?: Json[] | null
+          image_url?: string | null
         }
       }
       users: {
@@ -191,6 +200,117 @@ export interface Database {
           status?: 'in_progress' | 'completed'
           created_at?: string
           updated_at?: string
+        }
+      }
+      employee_allocations: {
+        Row: {
+          id: string
+          employee_id: string
+          client_id: string
+          date: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          employee_id: string
+          client_id: string
+          date: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          employee_id?: string
+          client_id?: string
+          date?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      audit_logs: {
+        Row: {
+          id: string
+          user_id: string | null
+          action: string
+          table_name: string
+          record_id: string | null
+          details: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          action: string
+          table_name: string
+          record_id?: string | null
+          details?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          action?: string
+          table_name?: string
+          record_id?: string | null
+          details?: string | null
+          created_at?: string
+        }
+      }
+      dealerships: {
+        Row: {
+          id: string
+          name: string
+          street: string
+          number: string
+          city: string
+          state: string
+          zip_code: string
+          phone: string
+          email: string
+          business_hours: Json
+          registration_number: string
+          status: string
+          created_at: string
+          updated_at: string
+          created_by: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          street: string
+          number: string
+          city: string
+          state: string
+          zip_code: string
+          phone: string
+          email: string
+          business_hours?: Json
+          registration_number: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          street?: string
+          number?: string
+          city?: string
+          state?: string
+          zip_code?: string
+          phone?: string
+          email?: string
+          business_hours?: Json
+          registration_number?: string
+          status?: string
+          created_at?: string
+          updated_at?: string
+          created_by?: string | null
+          updated_by?: string | null
         }
       }
     }
