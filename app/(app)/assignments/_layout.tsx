@@ -10,6 +10,27 @@ export default function AssignmentsLayout() {
           headerShown: true,
         }}
       />
+      <Stack.Screen
+        name="allocations"
+        options={{
+          title: 'Employee Allocations',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="service-assignments"
+        options={{
+          title: 'Manage Service Assignments',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="assignment-reports"
+        options={{
+          title: 'Assignment Reports',
+          headerShown: true,
+        }}
+      />
     </Stack>
   );
 }

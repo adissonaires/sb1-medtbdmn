@@ -4,11 +4,13 @@ import { Search, Plus, MoveVertical as MoreVertical, X, CreditCard as Edit, Tras
 import { useAuth } from '../../../context/auth';
 import { supabase } from '../../../lib/supabase';
 import { Database } from '../../../lib/database.types';
+import { useNotifications } from '../../../context/notifications';
 
 type User = Database['public']['Tables']['users']['Row'];
 
 export default function Users() {
   const { user: currentUser, isAdmin } = useAuth();
+  const { showNotification } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -61,14 +63,14 @@ export default function Users() {
 
       if (error) {
         console.error('Error fetching users:', error);
-        Alert.alert('Error', 'Failed to load users');
+        showNotification('Failed to load users', 'error');
       } else {
         setUsers(data || []);
         setFilteredUsers(data || []);
       }
     } catch (error) {
       console.error('Exception fetching users:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      showNotification('An unexpected error occurred', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -114,19 +116,19 @@ export default function Users() {
 
   const handleDeleteUser = async (user: User) => {
     if (!isAdmin()) {
-      Alert.alert('Permission Denied', 'Only administrators can delete users');
+      showNotification('Permission Denied', 'Only administrators can delete users', 'error');
       return;
     }
 
     // Don't allow deleting yourself
     if (user.id === currentUser?.id) {
-      Alert.alert('Error', 'You cannot delete your own account');
+      showNotification('Error', 'You cannot delete your own account', 'error');
       return;
     }
 
     // Don't allow deleting the superadmin account
     if (user.email === 'superadmin@autodetail.com') {
-      Alert.alert('Error', 'The system administrator account cannot be deleted');
+      showNotification('Error', 'The system administrator account cannot be deleted', 'error');
       return;
     }
 
@@ -150,15 +152,15 @@ export default function Users() {
               
               if (error) {
                 console.error('Error deleting user:', error);
-                Alert.alert('Error', 'Failed to delete user');
+                showNotification('Error', 'Failed to delete user', 'error');
               } else {
                 // Refresh user list
                 fetchUsers();
-                Alert.alert('Success', 'User deleted successfully');
+                showNotification('Success', 'User deleted successfully', 'success');
               }
             } catch (error) {
               console.error('Exception deleting user:', error);
-              Alert.alert('Error', 'An unexpected error occurred');
+              showNotification('Error', 'An unexpected error occurred', 'error');
             } finally {
               setIsLoading(false);
               setShowActionMenu(false);
@@ -172,24 +174,24 @@ export default function Users() {
   const handleSubmitUser = async () => {
     // Validate form
     if (!formData.name || !formData.email) {
-      Alert.alert('Error', 'Name and email are required');
+      showNotification('Error', 'Name and email are required', 'error');
       return;
     }
 
     if (modalMode === 'create' && !formData.password) {
-      Alert.alert('Error', 'Password is required for new users');
+      showNotification('Error', 'Password is required for new users', 'error');
       return;
     }
 
     // Admin permission check
     if (!isAdmin()) {
-      Alert.alert('Permission Denied', 'Only administrators can manage users');
+      showNotification('Permission Denied', 'Only administrators can manage users', 'error');
       return;
     }
 
     // Protect the superadmin account from being modified
     if (modalMode === 'edit' && selectedUser?.email === 'superadmin@autodetail.com') {
-      Alert.alert('Permission Denied', 'The system administrator account cannot be modified');
+      showNotification('Permission Denied', 'The system administrator account cannot be modified', 'error');
       return;
     }
 
@@ -211,12 +213,12 @@ export default function Users() {
 
         if (signUpError) {
           console.error('Error creating user:', signUpError);
-          Alert.alert('Error', signUpError.message);
+          showNotification('Error', signUpError.message, 'error');
           return;
         }
 
         if (!data.user) {
-          Alert.alert('Error', 'Failed to create user');
+          showNotification('Error', 'Failed to create user', 'error');
           return;
         }
 
@@ -241,9 +243,12 @@ export default function Users() {
 
         if (profileError) {
           console.error('Error creating user profile:', profileError);
-          Alert.alert('Error', 'User created but profile setup failed');
+          showNotification('Error', 'User created but profile setup failed', 'error');
         } else {
-          Alert.alert('Success', 'User created successfully');
+          showNotification('Success', 'User created successfully', 'success');
+          
+          // Refresh the user list
+          await fetchUsers();
         }
       } else if (modalMode === 'edit' && selectedUser) {
         // Update user profile
@@ -265,20 +270,22 @@ export default function Users() {
 
         if (updateError) {
           console.error('Error updating user:', updateError);
-          Alert.alert('Error', 'Failed to update user');
+          showNotification('Error', 'Failed to update user', 'error');
         } else {
           // We can't update auth user email or password without admin rights
           // Just show success for the profile update
-          Alert.alert('Success', 'User profile updated successfully');
+          showNotification('Success', 'User profile updated successfully', 'success');
+          
+          // Refresh the user list
+          await fetchUsers();
         }
       }
 
-      // Refresh user list
-      fetchUsers();
+      // Close the modal after successful operation
       setShowUserModal(false);
     } catch (error) {
       console.error('Exception managing user:', error);
-      Alert.alert('Error', 'An unexpected error occurred');
+      showNotification('Error', 'An unexpected error occurred', 'error');
     } finally {
       setIsLoading(false);
     }

@@ -20,7 +20,6 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// This hook can be used to access the user info.
 export function useAuth() {
   const authContext = useContext(AuthContext);
   if (!authContext) {
@@ -138,8 +137,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function initialize() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
+        if (sessionError) {
+          // Handle session error by signing out and redirecting to sign in
+          await supabase.auth.signOut();
+          setUser(null);
+          setIsLoading(false);
+          setIsInitialized(true);
+          return;
+        }
+
         if (!isMounted) return;
 
         if (session?.user) {
@@ -167,6 +175,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
+        // Handle initialization error by redirecting to sign in
+        await supabase.auth.signOut();
+        setUser(null);
       } finally {
         if (isMounted) { 
           setIsLoading(false);
@@ -178,6 +189,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initialize();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        setUser(null);
+        router.replace('/sign-in');
+        return;
+      }
+
       if (session?.user && isMounted) {
         const { profile, error: profileError } = await fetchUserProfile(session.user.id);
 
@@ -283,21 +300,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signOut = () => {
+  const signOut = async () => {
     setError(null);
-    supabase.auth.signOut();
+    await supabase.auth.signOut();
     setUser(null);
     router.replace('/sign-in');
   };
 
-  // Function to update user profile
   const updateUserProfile = async (userData: Partial<User>) => {
     try {
       if (!user?.id) {
         return { success: false, error: 'No user logged in' };
       }
 
-      // Add updated_at timestamp
       const dataToUpdate = {
         ...userData,
         updated_at: new Date().toISOString()
@@ -330,15 +345,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Function to create a new user (admin only)
   const createUser = async (userData: Partial<User>, password: string) => {
     try {
-      // Check if current user is admin
       if (!isAdmin()) {
         return { success: false, error: 'Only administrators can create users' };
       }
 
-      // Create auth user using public signup instead of admin API
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: userData.email!,
         password: password,
@@ -359,7 +371,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'Failed to create user' };
       }
 
-      // Create user profile
       const { profile, error: profileError } = await createUserProfile(
         data.user.id,
         userData.email!,
@@ -372,7 +383,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: profileError };
       }
 
-      // Update additional user fields
       if (profile) {
         const { error: updateError } = await supabase
           .from('users')
@@ -396,7 +406,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Helper function to check if user is admin
   const isAdmin = () => {
     return user?.role === 'admin';
   };
